@@ -6,12 +6,12 @@ import com.facebook.react.uimanager.events.RCTEventEmitter
 import video.api.reactnative.livestream.ViewProps
 
 class OnStartStreamingEvent(
-  private val viewTag: Int,
+  tag: Int,
   private val requestId: Int,
   private val result: Boolean,
   private val error: String? = null
-) :
-  Event<OnStartStreamingEvent>(viewTag) {
+) : Event<OnStartStreamingEvent>(tag) {
+
   private val params = Arguments.createMap().apply {
     putInt("requestId", requestId)
     putBoolean("result", result)

@@ -4,7 +4,7 @@ import com.facebook.react.uimanager.events.Event
 import com.facebook.react.uimanager.events.RCTEventEmitter
 import video.api.reactnative.livestream.ViewProps
 
-class OnConnectionSuccessEvent(private val viewTag: Int): Event<OnConnectionSuccessEvent>(viewTag) {
+class OnConnectionSuccessEvent(tag: Int) : Event<OnConnectionSuccessEvent>(tag) {
   override fun getEventName() = ViewProps.Events.CONNECTION_SUCCESS.eventName
 
   override fun dispatch(rctEventEmitter: RCTEventEmitter) {

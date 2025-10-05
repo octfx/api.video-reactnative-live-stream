@@ -5,8 +5,9 @@ import com.facebook.react.uimanager.events.Event
 import com.facebook.react.uimanager.events.RCTEventEmitter
 import video.api.reactnative.livestream.ViewProps
 
-class OnConnectionFailedEvent(private val viewTag: Int, private val reason: String?) :
-  Event<OnConnectionFailedEvent>(viewTag) {
+class OnConnectionFailedEvent(tag: Int, private val reason: String?) :
+  Event<OnConnectionFailedEvent>(tag) {
+
   private val params = Arguments.createMap().apply {
     putString("code", reason)
   }

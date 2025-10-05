@@ -5,8 +5,9 @@ import com.facebook.react.uimanager.events.Event
 import com.facebook.react.uimanager.events.RCTEventEmitter
 import video.api.reactnative.livestream.ViewProps
 
-class OnPermissionsDeniedEvent(private val viewTag: Int, private val permissions: List<String>) :
-  Event<OnPermissionsDeniedEvent>(viewTag) {
+class OnPermissionsDeniedEvent(tag: Int, private val permissions: List<String>) :
+  Event<OnPermissionsDeniedEvent>(tag) {
+
   private val params = Arguments.createMap().apply {
     putArray("permissions", Arguments.fromList(permissions))
   }
