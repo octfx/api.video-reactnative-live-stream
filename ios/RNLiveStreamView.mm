@@ -134,7 +134,13 @@ using namespace facebook::react;
     } else if (view.enablePinchedZoom != newViewProps.enablePinchedZoom) {
         [view setEnablePinchedZoom:newViewProps.enablePinchedZoom];
     }
-    
+
+    if (oldViewProps.stopStreamingOnPause != newViewProps.stopStreamingOnPause) {
+        [view setStopStreamingOnPause:newViewProps.stopStreamingOnPause];
+    } else if (view.stopStreamingOnPause != newViewProps.stopStreamingOnPause) {
+        [view setStopStreamingOnPause:newViewProps.stopStreamingOnPause];
+    }
+
     [super updateProps:props oldProps:oldProps];
 }
 

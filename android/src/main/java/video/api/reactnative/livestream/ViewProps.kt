@@ -10,6 +10,7 @@ object ViewProps {
   const val CAMERA = "camera"
   const val ZOOM_RATIO = "zoomRatio"
   const val ZOOM_ENABLED = "enablePinchedZoom"
+  const val STOP_STREAMING_ON_PAUSE = "stopStreamingOnPause"
 
   // Audio and video configurations
   const val BITRATE = "bitrate"

@@ -150,6 +150,8 @@ public class RNLiveStreamViewImpl: UIView {
         }
     }
 
+    @objc public var stopStreamingOnPause: Bool = true
+
     @objc public func startStreaming(requestId: Int, streamKey: String, url: String?) {
         do {
            if let url = url {
@@ -208,7 +210,11 @@ public class RNLiveStreamViewImpl: UIView {
         // Re-attach preview when the view is back on-screen.
         liveStream.startPreview()
       } else {
-        liveStream.stopPreview()
+        if stopStreamingOnPause {
+          liveStream.stopStreaming()
+        } else {
+          liveStream.stopPreview()
+        }
       }
     }
 

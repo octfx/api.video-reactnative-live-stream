@@ -29,6 +29,7 @@ type ApiVideoLiveStreamProps = {
   };
   zoomRatio?: number;
   enablePinchedZoom?: boolean;
+  stopStreamingOnPause?: boolean;
 
   onConnectionSuccess?: () => void;
   onConnectionFailed?: (code: string) => void;
@@ -54,6 +55,7 @@ const LIVE_STREAM_PROPS_DEFAULTS: NativeLiveStreamProps = {
   },
   zoomRatio: 1.0,
   enablePinchedZoom: true,
+  stopStreamingOnPause: true,
 };
 
 export type ApiVideoLiveStreamMethods = {
@@ -208,6 +210,7 @@ const ApiVideoLiveStreamView = forwardRef<
       audio={nativeLiveStreamProps.audio}
       zoomRatio={nativeLiveStreamProps.zoomRatio}
       enablePinchedZoom={nativeLiveStreamProps.enablePinchedZoom}
+      stopStreamingOnPause={nativeLiveStreamProps.stopStreamingOnPause}
       onConnectionSuccess={nativeLiveStreamProps.onConnectionSuccess}
       onConnectionFailed={nativeLiveStreamProps.onConnectionFailed}
       onDisconnect={nativeLiveStreamProps.onDisconnect}

@@ -98,6 +98,11 @@ class LiveStreamViewManager : LiveStreamViewManagerSpec<LiveStreamView>() {
     view.zoomRatio = value
   }
 
+  @ReactProp(name = ViewProps.STOP_STREAMING_ON_PAUSE)
+  override fun setStopStreamingOnPause(view: LiveStreamView, value: Boolean) {
+    view.stopStreamingOnPause = value
+  }
+
   @ReactMethod
   override fun startStreaming(
     view: LiveStreamView,

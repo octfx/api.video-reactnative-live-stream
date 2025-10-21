@@ -8,6 +8,7 @@ RCT_EXPORT_VIEW_PROPERTY(camera, NSString)
 RCT_EXPORT_VIEW_PROPERTY(isMuted, BOOL)
 RCT_EXPORT_VIEW_PROPERTY(enablePinchedZoom, BOOL)
 RCT_EXPORT_VIEW_PROPERTY(zoomRatio, double)
+RCT_EXPORT_VIEW_PROPERTY(stopStreamingOnPause, BOOL)
 
 RCT_EXPORT_VIEW_PROPERTY(onConnectionSuccess, RCTDirectEventBlock)
 RCT_EXPORT_VIEW_PROPERTY(onConnectionFailed, RCTDirectEventBlock)

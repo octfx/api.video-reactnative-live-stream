@@ -45,6 +45,7 @@ export interface NativeLiveStreamProps extends ViewProps {
   };
   zoomRatio: Float;
   enablePinchedZoom: boolean;
+  stopStreamingOnPause?: WithDefault<boolean, true>;
 
   onConnectionSuccess?: DirectEventHandler<null>;
   onConnectionFailed?: DirectEventHandler<OnConnectionFailedEvent>;
