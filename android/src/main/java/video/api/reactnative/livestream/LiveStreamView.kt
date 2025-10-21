@@ -179,8 +179,6 @@ class LiveStreamView @JvmOverloads constructor(
       field = value
     }
 
-  var stopStreamingOnPause: Boolean = true
-
   private val pinchGesture: ScaleGestureDetector by lazy {
     ScaleGestureDetector(
       context,
@@ -260,12 +258,8 @@ class LiveStreamView @JvmOverloads constructor(
   }
 
   override fun onHostPause() {
-    if (stopStreamingOnPause) {
-      liveStream.stopStreaming()
-    } else {
-      // App or fragment lost focus. Keep streaming. Only stop preview to free the Surface.
-      liveStream.stopPreview()
-    }
+    // App or fragment lost focus. Keep streaming. Only stop preview to free the Surface.
+    liveStream.stopPreview()
   }
 
   override fun onHostDestroy() {

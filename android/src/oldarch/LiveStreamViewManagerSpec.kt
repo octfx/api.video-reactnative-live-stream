@@ -12,7 +12,6 @@ abstract class LiveStreamViewManagerSpec<T : View> : SimpleViewManager<T>() {
   abstract fun setAudio(view: T, value: ReadableMap?)
   abstract fun setZoomRatio(view: T, value: Float)
   abstract fun setEnablePinchedZoom(view: T, value: Boolean)
-  abstract fun setStopStreamingOnPause(view: T, value: Boolean)
 
   abstract fun startStreaming(view: T, requestId: Int, streamKey: String, url: String?)
   abstract fun stopStreaming(view: T)
