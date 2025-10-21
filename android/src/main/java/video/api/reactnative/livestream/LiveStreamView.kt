@@ -258,25 +258,11 @@ class LiveStreamView @JvmOverloads constructor(
   }
 
   override fun onHostPause() {
-    // App or fragment lost focus. Keep streaming. Only stop preview to free the Surface.
+    liveStream.stopStreaming()
     liveStream.stopPreview()
   }
 
   override fun onHostDestroy() {
     liveStream.release()
-  }
-
-  override fun onAttachedToWindow() {
-    super.onAttachedToWindow()
-
-    if (permissionsManager.hasPermission(Manifest.permission.CAMERA)) {
-      liveStream.startPreview()
-    }
-  }
-
-  override fun onDetachedFromWindow() {
-    super.onDetachedFromWindow()
-    // Detach preview when the view is not in the window. Do not stop streaming.
-    liveStream.stopPreview()
   }
 }

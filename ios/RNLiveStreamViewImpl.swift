@@ -201,17 +201,12 @@ public class RNLiveStreamViewImpl: UIView {
     @objc public var onDisconnect: (_ dictionnary: [String: Any]) -> Void = { _ in }
 
     @objc public var onStartStreaming: (_ dictionnary: [String: Any]) -> Void = { _ in }
-
-    override public func didMoveToWindow() {
-      super.didMoveToWindow()
-      if window != nil {
-        // Re-attach preview when the view is back on-screen.
-        liveStream.startPreview()
-      } else {
+    
+    @objc override public func removeFromSuperview() {
+        super.removeFromSuperview()
         liveStream.stopPreview()
-      }
     }
-
+}
 
 extension RNLiveStreamViewImpl: ApiVideoLiveStreamDelegate {
     /// Called when the connection to the rtmp server is successful
