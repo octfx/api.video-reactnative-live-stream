@@ -15,14 +15,14 @@ class SerialPermissionsManager(
     return permissionsManager.hasPermission(permission)
   }
 
-  private fun processNextRequest() {
+  private fun processNextRequest(completedRequest: Runnable) {
+    val nextRequest: Runnable?
     synchronized(this) {
-      permissionRequests.removeAt(0)
+      permissionRequests.remove(completedRequest)
+      nextRequest = permissionRequests.firstOrNull()
     }
 
-    if (permissionRequests.isNotEmpty()) {
-      executor.execute(permissionRequests.first())
-    }
+    nextRequest?.let { executor.execute(it) }
   }
 
   fun requestPermissions(
@@ -31,19 +31,21 @@ class SerialPermissionsManager(
     onShowPermissionRationale: (List<String>, () -> Unit) -> Unit,
     onAtLeastOnePermissionDenied: (List<String>) -> Unit
   ) {
-    val request = Runnable {
-      permissionsManager.requestPermissions(
-        permissions,
-        {
-          onAllGranted()
-          processNextRequest()
-        },
-        onShowPermissionRationale,
-        { permissions ->
-          onAtLeastOnePermissionDenied(permissions)
-          processNextRequest()
-        }
-      )
+    val request = object : Runnable {
+      override fun run() {
+        permissionsManager.requestPermissions(
+          permissions,
+          {
+            onAllGranted()
+            processNextRequest(this)
+          },
+          onShowPermissionRationale,
+          { permissions ->
+            onAtLeastOnePermissionDenied(permissions)
+            processNextRequest(this)
+          }
+        )
+      }
     }
     synchronized(this) {
       permissionRequests.add(request)
@@ -59,19 +61,21 @@ class SerialPermissionsManager(
     onShowPermissionRationale: (() -> Unit) -> Unit,
     onDenied: () -> Unit
   ) {
-    val request = Runnable {
-      permissionsManager.requestPermission(
-        permission,
-        {
-          onGranted()
-          processNextRequest()
-        },
-        onShowPermissionRationale,
-        {
-          onDenied()
-          processNextRequest()
-        }
-      )
+    val request = object : Runnable {
+      override fun run() {
+        permissionsManager.requestPermission(
+          permission,
+          {
+            onGranted()
+            processNextRequest(this)
+          },
+          onShowPermissionRationale,
+          {
+            onDenied()
+            processNextRequest(this)
+          }
+        )
+      }
     }
     synchronized(this) {
       permissionRequests.add(request)

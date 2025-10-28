@@ -72,7 +72,9 @@ class LiveStreamView @JvmOverloads constructor(
         permissionsManager.requestPermissions(
           permissions,
           onAllGranted = {
-            onGranted()
+            runOnUiThread {
+              onGranted()
+            }
           },
           onShowPermissionRationale = { missingPermissions, onRequiredPermissionLastTime ->
             runOnUiThread {
