@@ -72,9 +72,7 @@ class LiveStreamView @JvmOverloads constructor(
         permissionsManager.requestPermissions(
           permissions,
           onAllGranted = {
-            runOnUiThread {
-              onGranted()
-            }
+            runOnUiThread { onGranted() }
           },
           onShowPermissionRationale = { missingPermissions, onRequiredPermissionLastTime ->
             runOnUiThread {
@@ -202,10 +200,26 @@ class LiveStreamView @JvmOverloads constructor(
       })
   }
 
+  override fun onAttachedToWindow() {
+    super.onAttachedToWindow()
+    ensurePreviewStarted()
+  }
+
+  private fun ensurePreviewStarted() {
+    try {
+      liveStream.startPreview()
+    } catch (e: Exception) {
+      Log.e(TAG, "Failed to start preview", e)
+      throw e
+    }
+  }
+
   fun startStreaming(requestId: Int, streamKey: String, url: String?) {
     try {
       require(permissionsManager.hasPermission(Manifest.permission.CAMERA)) { "Missing permissions Manifest.permission.CAMERA" }
       require(permissionsManager.hasPermission(Manifest.permission.RECORD_AUDIO)) { "Missing permissions Manifest.permission.RECORD_AUDIO" }
+
+      ensurePreviewStarted()
 
       /**
        * Workaround to reapply video config in case orientation has changed.
@@ -248,7 +262,7 @@ class LiveStreamView @JvmOverloads constructor(
      * Only start preview if the app has the required permissions.
      */
     if (permissionsManager.hasPermission(Manifest.permission.CAMERA)) {
-      liveStream.startPreview()
+      ensurePreviewStarted()
     }
     /**
      * Workaround to reapply audio config in case it was not applied when the app started (due to
