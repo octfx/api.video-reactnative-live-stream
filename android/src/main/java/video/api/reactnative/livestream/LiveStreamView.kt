@@ -36,6 +36,7 @@ class LiveStreamView @JvmOverloads constructor(
 
   private val orientationManager = OrientationManager(context)
   private var isClosed = false
+  private var isPreviewRunning = false
 
   // Connection listeners
   var onConnectionSuccess: (() -> Unit)? = null
@@ -131,7 +132,10 @@ class LiveStreamView @JvmOverloads constructor(
       /**
        * Camera permission is required when `startPreview` is called internally. The permission
        * request goes through the `permissionRequester` callback.
+       * Note: Setting videoConfig may trigger preview start in the underlying SDK, which is
+       * separate from our isPreviewRunning state tracking.
        */
+      Log.d(TAG, "Setting videoConfig - current preview state: running=$isPreviewRunning")
       liveStream.videoConfig = value
     }
 
@@ -211,11 +215,36 @@ class LiveStreamView @JvmOverloads constructor(
       Log.w(TAG, "Skipping preview start: view already released")
       return
     }
+    if (isPreviewRunning) {
+      Log.d(TAG, "Preview already running, skipping start")
+      return
+    }
     try {
+      Log.d(TAG, "Starting camera preview")
       liveStream.startPreview()
+      isPreviewRunning = true
+      Log.d(TAG, "Camera preview started successfully")
     } catch (e: Exception) {
       Log.e(TAG, "Failed to start preview", e)
+      isPreviewRunning = false
       throw e
+    }
+  }
+
+  private fun stopPreviewInternal() {
+    if (!isPreviewRunning) {
+      Log.d(TAG, "Preview not running, skipping stop")
+      return
+    }
+    try {
+      Log.d(TAG, "Stopping camera preview")
+      liveStream.stopPreview()
+      isPreviewRunning = false
+      Log.d(TAG, "Camera preview stopped successfully")
+    } catch (e: Exception) {
+      Log.e(TAG, "Failed to stop preview", e)
+      // Still mark as not running even if stop failed
+      isPreviewRunning = false
     }
   }
 
@@ -227,9 +256,12 @@ class LiveStreamView @JvmOverloads constructor(
       return
     }
     try {
+      Log.d(TAG, "Starting streaming - preview state: running=$isPreviewRunning")
+
       require(permissionsManager.hasPermission(Manifest.permission.CAMERA)) { "Missing permissions Manifest.permission.CAMERA" }
       require(permissionsManager.hasPermission(Manifest.permission.RECORD_AUDIO)) { "Missing permissions Manifest.permission.RECORD_AUDIO" }
 
+      // Ensure preview is started (will skip if already running)
       ensurePreviewStarted()
 
       /**
@@ -238,15 +270,18 @@ class LiveStreamView @JvmOverloads constructor(
        * application.
        */
       if (orientationManager.orientationHasChanged) {
+        Log.d(TAG, "Orientation changed, reapplying video config")
         liveStream.videoConfig = liveStream.videoConfig
       }
 
+      Log.d(TAG, "Calling liveStream.startStreaming with streamKey=${streamKey.take(8)}..., url=$url")
       url?.let { liveStream.startStreaming(streamKey, it) }
         ?: liveStream.startStreaming(streamKey)
 
+      Log.d(TAG, "Streaming started successfully")
       onStartStreaming?.let { it(requestId, true, null) }
     } catch (e: Exception) {
-      Log.e(TAG, "Failed to start streaming", e)
+      Log.e(TAG, "Failed to start streaming - preview state: running=$isPreviewRunning", e)
       onStartStreaming?.let { it(requestId, false, e.message) }
     }
   }
@@ -256,7 +291,9 @@ class LiveStreamView @JvmOverloads constructor(
       Log.w(TAG, "stopStreaming ignored: LiveStreamView already released")
       return
     }
+    Log.d(TAG, "Stopping streaming - preview state: running=$isPreviewRunning")
     liveStream.stopStreaming()
+    Log.d(TAG, "Streaming stopped successfully")
   }
 
   override fun close() {
@@ -264,9 +301,12 @@ class LiveStreamView @JvmOverloads constructor(
       Log.w(TAG, "close ignored: LiveStreamView already released")
       return
     }
+    Log.d(TAG, "Releasing LiveStreamView resources")
     isClosed = true
+    isPreviewRunning = false
     orientationManager.close()
     liveStream.release()
+    Log.d(TAG, "LiveStreamView resources released")
   }
 
   companion object {
@@ -303,7 +343,7 @@ class LiveStreamView @JvmOverloads constructor(
       return
     }
     liveStream.stopStreaming()
-    liveStream.stopPreview()
+    stopPreviewInternal()
   }
 
   override fun onHostDestroy() {
