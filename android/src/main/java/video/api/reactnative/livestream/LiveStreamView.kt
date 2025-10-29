@@ -6,7 +6,9 @@ import android.content.Context
 import android.util.AttributeSet
 import android.util.Log
 import android.view.ScaleGestureDetector
+import android.view.View
 import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.core.view.doOnLayout
 import com.facebook.react.bridge.LifecycleEventListener
 import com.facebook.react.bridge.UiThreadUtil.runOnUiThread
 import com.facebook.react.uimanager.ThemedReactContext
@@ -15,12 +17,12 @@ import video.api.livestream.enums.CameraFacingDirection
 import video.api.livestream.interfaces.IConnectionListener
 import video.api.livestream.models.AudioConfig
 import video.api.livestream.models.VideoConfig
+import video.api.livestream.views.ApiVideoView
 import video.api.reactnative.livestream.utils.OrientationManager
 import video.api.reactnative.livestream.utils.permissions.PermissionsManager
 import video.api.reactnative.livestream.utils.permissions.SerialPermissionsManager
 import video.api.reactnative.livestream.utils.showDialog
 import java.io.Closeable
-
 
 @SuppressLint("MissingPermission")
 class LiveStreamView @JvmOverloads constructor(
@@ -29,14 +31,17 @@ class LiveStreamView @JvmOverloads constructor(
   defStyle: Int = 0
 ) : ConstraintLayout(context, attrs, defStyle),
   Closeable, LifecycleEventListener {
-  private val liveStream: ApiVideoLiveStream
+
   private val permissionsManager = SerialPermissionsManager(
     PermissionsManager((context as ThemedReactContext).reactApplicationContext)
   )
 
   private val orientationManager = OrientationManager(context)
   private var isClosed = false
-  private var isPreviewRunning = false
+
+  // Avoid duplicate start requests while we wait for layout
+  @Volatile
+  private var previewStartRequested = false
 
   // Connection listeners
   var onConnectionSuccess: (() -> Unit)? = null
@@ -52,30 +57,34 @@ class LiveStreamView @JvmOverloads constructor(
 
   private val connectionListener = object : IConnectionListener {
     override fun onConnectionSuccess() {
-      onConnectionSuccess?.let { it() }
+      onConnectionSuccess?.invoke()
     }
-
     override fun onConnectionFailed(reason: String) {
-      onConnectionFailed?.let { it(reason) }
+      onConnectionFailed?.invoke(reason)
     }
-
     override fun onDisconnect() {
-      onDisconnected?.let { it() }
+      onDisconnected?.invoke()
     }
   }
 
+  private val previewHost: ApiVideoView
+  private val liveStream: ApiVideoLiveStream
+
   init {
+    // Register for RN lifecycle callbacks
+    (context as ThemedReactContext).addLifecycleEventListener(this)
+
     inflate(context, R.layout.react_native_livestream, this)
+    previewHost = findViewById<ApiVideoView>(R.id.apivideo_view)
+
     liveStream = ApiVideoLiveStream(
       context = context,
       connectionListener = connectionListener,
-      apiVideoView = findViewById(R.id.apivideo_view),
+      apiVideoView = previewHost,
       permissionRequester = { permissions, onGranted ->
         permissionsManager.requestPermissions(
           permissions,
-          onAllGranted = {
-            runOnUiThread { onGranted() }
-          },
+          onAllGranted = { runOnUiThread { onGranted() } },
           onShowPermissionRationale = { missingPermissions, onRequiredPermissionLastTime ->
             runOnUiThread {
               when {
@@ -87,7 +96,6 @@ class LiveStreamView @JvmOverloads constructor(
                     onPositiveButtonClick = { onRequiredPermissionLastTime() }
                   )
                 }
-
                 missingPermissions.contains(Manifest.permission.CAMERA) -> {
                   context.showDialog(
                     R.string.permission_required,
@@ -96,7 +104,6 @@ class LiveStreamView @JvmOverloads constructor(
                     onPositiveButtonClick = { onRequiredPermissionLastTime() }
                   )
                 }
-
                 missingPermissions.contains(Manifest.permission.RECORD_AUDIO) -> {
                   context.showDialog(
                     R.string.permission_required,
@@ -109,75 +116,53 @@ class LiveStreamView @JvmOverloads constructor(
             }
             val permissionsStrings = missingPermissions.joinToString(", ")
             Log.e(TAG, "Asking rationale for missing permissions: $permissionsStrings")
-            onPermissionsRationale?.let { it(missingPermissions) }
+            onPermissionsRationale?.invoke(missingPermissions)
           },
           onAtLeastOnePermissionDenied = { missingPermissions ->
             val permissionsStrings = missingPermissions.joinToString(", ")
             Log.e(TAG, "Missing permissions: $permissionsStrings")
-            onPermissionsDenied?.let { it(missingPermissions) }
-          })
+            onPermissionsDenied?.invoke(missingPermissions)
+          }
+        )
       }
     )
   }
 
   var videoBitrate: Int
     get() = liveStream.videoBitrate
-    set(value) {
-      liveStream.videoBitrate = value
-    }
+    set(value) { liveStream.videoBitrate = value }
 
   var videoConfig: VideoConfig?
     get() = liveStream.videoConfig
     set(value) {
-      /**
-       * Camera permission is required when `startPreview` is called internally. The permission
-       * request goes through the `permissionRequester` callback.
-       * Note: Setting videoConfig may trigger preview start in the underlying SDK, which is
-       * separate from our isPreviewRunning state tracking.
-       */
-      Log.d(TAG, "Setting videoConfig - current preview state: running=$isPreviewRunning")
+      Log.d(TAG, "Setting videoConfig")
       liveStream.videoConfig = value
     }
 
-
   var audioConfig: AudioConfig?
     get() = liveStream.audioConfig
-    set(value) {
-      /**
-       * Record audio permission is required when `configure` is called internally. The permission
-       * request goes through the `permissionRequester` callback.
-       */
-      liveStream.audioConfig = value
-    }
+    set(value) { liveStream.audioConfig = value }
 
   val isStreaming: Boolean
     get() = liveStream.isStreaming
 
   var camera: CameraFacingDirection
     get() = liveStream.cameraPosition
-    set(value) {
-      liveStream.cameraPosition = value
-    }
+    set(value) { liveStream.cameraPosition = value }
 
   var isMuted: Boolean
     get() = liveStream.isMuted
-    set(value) {
-      liveStream.isMuted = value
-    }
+    set(value) { liveStream.isMuted = value }
 
   var zoomRatio: Float
     get() = liveStream.zoomRatio
-    set(value) {
-      liveStream.zoomRatio = value
-    }
+    set(value) { liveStream.zoomRatio = value }
 
   var enablePinchedZoom: Boolean = false
     @SuppressLint("ClickableViewAccessibility")
     set(value) {
       if (value) {
-        this.setOnTouchListener { _, event ->
-          pinchGesture.onTouchEvent(event)
-        }
+        this.setOnTouchListener { _, event -> pinchGesture.onTouchEvent(event) }
       } else {
         this.setOnTouchListener(null)
       }
@@ -193,58 +178,74 @@ class LiveStreamView @JvmOverloads constructor(
           zoomRatio = if (detector.scaleFactor < 1) {
             savedZoomRatio * detector.scaleFactor
           } else {
-            savedZoomRatio + ((detector.scaleFactor - 1))
+            savedZoomRatio + (detector.scaleFactor - 1)
           }
-          return super.onScale(detector)
+          return true
         }
-
         override fun onScaleBegin(detector: ScaleGestureDetector): Boolean {
           savedZoomRatio = zoomRatio
-          return super.onScaleBegin(detector)
+          return true
         }
-      })
+      }
+    )
   }
 
   override fun onAttachedToWindow() {
     super.onAttachedToWindow()
-    ensurePreviewStarted()
+    startPreviewWhenReady()
   }
 
-  private fun ensurePreviewStarted() {
+  override fun onDetachedFromWindow() {
+    super.onDetachedFromWindow()
+    stopPreviewInternal()
+  }
+
+  private fun startPreviewWhenReady() {
     if (isClosed) {
-      Log.w(TAG, "Skipping preview start: view already released")
+      Log.w(TAG, "Skipping preview start: view released")
       return
     }
-    if (isPreviewRunning) {
-      Log.d(TAG, "Preview already running, skipping start")
+    if (!permissionsManager.hasPermission(Manifest.permission.CAMERA)) {
+      Log.d(TAG, "Skipping preview start: camera permission not granted")
       return
     }
-    try {
-      Log.d(TAG, "Starting camera preview")
-      liveStream.startPreview()
-      isPreviewRunning = true
-      Log.d(TAG, "Camera preview started successfully")
-    } catch (e: Exception) {
-      Log.e(TAG, "Failed to start preview", e)
-      isPreviewRunning = false
-      throw e
+    if (previewStartRequested) {
+      Log.d(TAG, "Preview start already requested")
+      return
+    }
+    previewStartRequested = true
+
+    // Ensure the preview host has a surface and size before starting.
+    if (previewHost.width == 0 || previewHost.height == 0) {
+      Log.d(TAG, "Preview host not laid out yet. Deferring start until layout")
+      previewHost.doOnLayout { startPreviewNow() }
+    } else {
+      startPreviewNow()
+    }
+  }
+
+  private fun startPreviewNow() {
+    runOnUiThread {
+      try {
+        Log.d(TAG, "Starting camera preview")
+        liveStream.startPreview()
+        Log.d(TAG, "Camera preview started")
+      } catch (e: Exception) {
+        // Allow a later retry by clearing the request flag
+        previewStartRequested = false
+        Log.e(TAG, "Failed to start preview", e)
+      }
     }
   }
 
   private fun stopPreviewInternal() {
-    if (!isPreviewRunning) {
-      Log.d(TAG, "Preview not running, skipping stop")
-      return
-    }
+    previewStartRequested = false
     try {
       Log.d(TAG, "Stopping camera preview")
       liveStream.stopPreview()
-      isPreviewRunning = false
-      Log.d(TAG, "Camera preview stopped successfully")
+      Log.d(TAG, "Camera preview stopped")
     } catch (e: Exception) {
       Log.e(TAG, "Failed to stop preview", e)
-      // Still mark as not running even if stop failed
-      isPreviewRunning = false
     }
   }
 
@@ -252,60 +253,59 @@ class LiveStreamView @JvmOverloads constructor(
     if (isClosed) {
       val message = "LiveStreamView already released"
       Log.w(TAG, "startStreaming ignored: $message")
-      onStartStreaming?.let { it(requestId, false, message) }
+      onStartStreaming?.invoke(requestId, false, message)
       return
     }
     try {
-      Log.d(TAG, "Starting streaming - preview state: running=$isPreviewRunning")
+      require(permissionsManager.hasPermission(Manifest.permission.CAMERA)) {
+        "Missing permissions Manifest.permission.CAMERA"
+      }
+      require(permissionsManager.hasPermission(Manifest.permission.RECORD_AUDIO)) {
+        "Missing permissions Manifest.permission.RECORD_AUDIO"
+      }
 
-      require(permissionsManager.hasPermission(Manifest.permission.CAMERA)) { "Missing permissions Manifest.permission.CAMERA" }
-      require(permissionsManager.hasPermission(Manifest.permission.RECORD_AUDIO)) { "Missing permissions Manifest.permission.RECORD_AUDIO" }
+      // Make sure preview is up
+      startPreviewWhenReady()
 
-      // Ensure preview is started (will skip if already running)
-      ensurePreviewStarted()
-
-      /**
-       * Workaround to reapply video config in case orientation has changed.
-       * This happens because `configChanges` may be disabled in the AndroidManifest.xml of a RN
-       * application.
-       */
+      // Reapply video config on orientation change
       if (orientationManager.orientationHasChanged) {
         Log.d(TAG, "Orientation changed, reapplying video config")
         liveStream.videoConfig = liveStream.videoConfig
       }
 
-      Log.d(TAG, "Calling liveStream.startStreaming with streamKey=${streamKey.take(8)}..., url=$url")
-      url?.let { liveStream.startStreaming(streamKey, it) }
-        ?: liveStream.startStreaming(streamKey)
+      Log.d(TAG, "Calling startStreaming streamKey=${streamKey.take(8)}..., url=$url")
+      if (url != null) liveStream.startStreaming(streamKey, url) else liveStream.startStreaming(streamKey)
 
-      Log.d(TAG, "Streaming started successfully")
-      onStartStreaming?.let { it(requestId, true, null) }
+      Log.d(TAG, "Streaming started")
+      onStartStreaming?.invoke(requestId, true, null)
     } catch (e: Exception) {
-      Log.e(TAG, "Failed to start streaming - preview state: running=$isPreviewRunning", e)
-      onStartStreaming?.let { it(requestId, false, e.message) }
+      Log.e(TAG, "Failed to start streaming", e)
+      onStartStreaming?.invoke(requestId, false, e.message)
     }
   }
 
   fun stopStreaming() {
     if (isClosed) {
-      Log.w(TAG, "stopStreaming ignored: LiveStreamView already released")
+      Log.w(TAG, "stopStreaming ignored: view released")
       return
     }
-    Log.d(TAG, "Stopping streaming - preview state: running=$isPreviewRunning")
+    Log.d(TAG, "Stopping streaming")
     liveStream.stopStreaming()
-    Log.d(TAG, "Streaming stopped successfully")
+    Log.d(TAG, "Streaming stopped")
   }
 
   override fun close() {
     if (isClosed) {
-      Log.w(TAG, "close ignored: LiveStreamView already released")
+      Log.w(TAG, "close ignored: view released")
       return
     }
     Log.d(TAG, "Releasing LiveStreamView resources")
     isClosed = true
-    isPreviewRunning = false
+    previewStartRequested = false
     orientationManager.close()
-    liveStream.release()
+    try { liveStream.release() } catch (e: Exception) {
+      Log.e(TAG, "LiveStream release failed", e)
+    }
     Log.d(TAG, "LiveStreamView resources released")
   }
 
@@ -313,33 +313,28 @@ class LiveStreamView @JvmOverloads constructor(
     private const val TAG = "RNLiveStreamView"
   }
 
+  // React Native lifecycle
+
   /**
-   * If you request a permission here, it will loop indefinitely between [onHostPause] and
-   * [onHostResume].
+   * Do not trigger permission requests here. Only start if already granted.
    */
   override fun onHostResume() {
     if (isClosed) {
-      Log.w(TAG, "onHostResume ignored: view already released")
+      Log.w(TAG, "onHostResume ignored: view released")
       return
     }
-    /**
-     * Only start preview if the app has the required permissions.
-     */
     if (permissionsManager.hasPermission(Manifest.permission.CAMERA)) {
-      ensurePreviewStarted()
+      startPreviewWhenReady()
     }
-    /**
-     * Workaround to reapply audio config in case it was not applied when the app started (due to
-     * missing RECORD_AUDIO permissions).
-     */
     if (permissionsManager.hasPermission(Manifest.permission.RECORD_AUDIO)) {
+      // Ensure audio config is applied when app resumes
       liveStream.audioConfig = liveStream.audioConfig
     }
   }
 
   override fun onHostPause() {
     if (isClosed) {
-      Log.w(TAG, "onHostPause ignored: view already released")
+      Log.w(TAG, "onHostPause ignored: view released")
       return
     }
     liveStream.stopStreaming()
@@ -347,6 +342,8 @@ class LiveStreamView @JvmOverloads constructor(
   }
 
   override fun onHostDestroy() {
+    // Unregister lifecycle listener and release
+    (context as ThemedReactContext).removeLifecycleEventListener(this)
     close()
   }
 }
