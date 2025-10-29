@@ -1,26 +1,42 @@
 package video.api.reactnative.livestream.events
 
 import com.facebook.react.bridge.Arguments
+import com.facebook.react.bridge.WritableMap
 import com.facebook.react.uimanager.events.Event
-import com.facebook.react.uimanager.events.RCTEventEmitter
 import video.api.reactnative.livestream.ViewProps
 
-class OnStartStreamingEvent(
-  tag: Int,
-  private val requestId: Int,
-  private val result: Boolean,
-  private val error: String? = null
-) : Event<OnStartStreamingEvent>(tag) {
+class OnStartStreamingEvent : Event<OnStartStreamingEvent> {
+  private val requestId: Int
+  private val result: Boolean
+  private val error: String?
 
-  private val params = Arguments.createMap().apply {
-    putInt("requestId", requestId)
-    putBoolean("result", result)
-    error?.let { putString("error", it) }
+  @Deprecated("Use constructor with surfaceId")
+  constructor(
+    tag: Int,
+    requestId: Int,
+    result: Boolean,
+    error: String? = null
+  ) : this(-1, tag, requestId, result, error)
+
+  constructor(
+    surfaceId: Int,
+    tag: Int,
+    requestId: Int,
+    result: Boolean,
+    error: String? = null
+  ) : super(surfaceId, tag) {
+    this.requestId = requestId
+    this.result = result
+    this.error = error
   }
 
   override fun getEventName() = ViewProps.Events.START_STREAMING.eventName
 
-  override fun dispatch(rctEventEmitter: RCTEventEmitter) {
-    rctEventEmitter.receiveEvent(viewTag, eventName, params)
+  override fun getEventData(): WritableMap {
+    return Arguments.createMap().apply {
+      putInt("requestId", requestId)
+      putBoolean("result", result)
+      error?.let { putString("error", it) }
+    }
   }
 }

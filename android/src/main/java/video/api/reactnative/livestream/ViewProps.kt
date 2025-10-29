@@ -1,7 +1,5 @@
 package video.api.reactnative.livestream
 
-import com.facebook.react.common.MapBuilder
-
 object ViewProps {
   // React props
   const val AUDIO_CONFIG = "audio"
@@ -36,11 +34,11 @@ object ViewProps {
 
     companion object {
       fun toEventsMap(): Map<String, *> {
-        val builder: MapBuilder.Builder<String, Map<String, String>> = MapBuilder.builder()
-        values().forEach {
-          builder.put(it.eventName, MapBuilder.of("registrationName", it.eventName))
+        return buildMap {
+          values().forEach {
+            put(it.eventName, mapOf("registrationName" to it.eventName))
+          }
         }
-        return builder.build()
       }
     }
   }

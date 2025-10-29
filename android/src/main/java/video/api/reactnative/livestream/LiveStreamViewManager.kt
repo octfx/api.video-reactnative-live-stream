@@ -22,29 +22,30 @@ class LiveStreamViewManager : LiveStreamViewManagerSpec<LiveStreamView>() {
   override fun createViewInstance(reactContext: ThemedReactContext): LiveStreamView {
     val view = LiveStreamView(reactContext)
     reactContext.addLifecycleEventListener(view)
+    val surfaceId = UIManagerHelper.getSurfaceId(reactContext)
     view.onConnectionSuccess = {
       UIManagerHelper.getEventDispatcherForReactTag(reactContext, view.id)?.dispatchEvent(
-        OnConnectionSuccessEvent(view.id)
+        OnConnectionSuccessEvent(surfaceId, view.id)
       ) ?: Log.e(NAME, "No event dispatcher for react tag ${view.id}")
     }
     view.onConnectionFailed = { reason ->
       UIManagerHelper.getEventDispatcherForReactTag(reactContext, view.id)?.dispatchEvent(
-        OnConnectionFailedEvent(view.id, reason)
+        OnConnectionFailedEvent(surfaceId, view.id, reason)
       ) ?: Log.e(NAME, "No event dispatcher for react tag ${view.id}")
     }
     view.onDisconnected = {
       UIManagerHelper.getEventDispatcherForReactTag(reactContext, view.id)?.dispatchEvent(
-        OnDisconnectEvent(view.id)
+        OnDisconnectEvent(surfaceId, view.id)
       ) ?: Log.e(NAME, "No event dispatcher for react tag ${view.id}")
     }
     view.onPermissionsDenied = { permissions ->
       UIManagerHelper.getEventDispatcherForReactTag(reactContext, view.id)?.dispatchEvent(
-        OnPermissionsDeniedEvent(view.id, permissions)
+        OnPermissionsDeniedEvent(surfaceId, view.id, permissions)
       ) ?: Log.e(NAME, "No event dispatcher for react tag ${view.id}")
     }
     view.onStartStreaming = { requestId, result, error ->
       UIManagerHelper.getEventDispatcherForReactTag(reactContext, view.id)?.dispatchEvent(
-        OnStartStreamingEvent(view.id, requestId, result, error)
+        OnStartStreamingEvent(surfaceId, view.id, requestId, result, error)
       ) ?: Log.e(NAME, "No event dispatcher for react tag ${view.id}")
     }
     return view
