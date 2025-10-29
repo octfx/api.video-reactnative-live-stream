@@ -35,6 +35,7 @@ class LiveStreamView @JvmOverloads constructor(
   )
 
   private val orientationManager = OrientationManager(context)
+  private var isClosed = false
 
   // Connection listeners
   var onConnectionSuccess: (() -> Unit)? = null
@@ -206,6 +207,10 @@ class LiveStreamView @JvmOverloads constructor(
   }
 
   private fun ensurePreviewStarted() {
+    if (isClosed) {
+      Log.w(TAG, "Skipping preview start: view already released")
+      return
+    }
     try {
       liveStream.startPreview()
     } catch (e: Exception) {
@@ -215,6 +220,12 @@ class LiveStreamView @JvmOverloads constructor(
   }
 
   fun startStreaming(requestId: Int, streamKey: String, url: String?) {
+    if (isClosed) {
+      val message = "LiveStreamView already released"
+      Log.w(TAG, "startStreaming ignored: $message")
+      onStartStreaming?.let { it(requestId, false, message) }
+      return
+    }
     try {
       require(permissionsManager.hasPermission(Manifest.permission.CAMERA)) { "Missing permissions Manifest.permission.CAMERA" }
       require(permissionsManager.hasPermission(Manifest.permission.RECORD_AUDIO)) { "Missing permissions Manifest.permission.RECORD_AUDIO" }
@@ -241,10 +252,19 @@ class LiveStreamView @JvmOverloads constructor(
   }
 
   fun stopStreaming() {
+    if (isClosed) {
+      Log.w(TAG, "stopStreaming ignored: LiveStreamView already released")
+      return
+    }
     liveStream.stopStreaming()
   }
 
   override fun close() {
+    if (isClosed) {
+      Log.w(TAG, "close ignored: LiveStreamView already released")
+      return
+    }
+    isClosed = true
     orientationManager.close()
     liveStream.release()
   }
@@ -258,6 +278,10 @@ class LiveStreamView @JvmOverloads constructor(
    * [onHostResume].
    */
   override fun onHostResume() {
+    if (isClosed) {
+      Log.w(TAG, "onHostResume ignored: view already released")
+      return
+    }
     /**
      * Only start preview if the app has the required permissions.
      */
@@ -274,11 +298,15 @@ class LiveStreamView @JvmOverloads constructor(
   }
 
   override fun onHostPause() {
+    if (isClosed) {
+      Log.w(TAG, "onHostPause ignored: view already released")
+      return
+    }
     liveStream.stopStreaming()
     liveStream.stopPreview()
   }
 
   override fun onHostDestroy() {
-    liveStream.release()
+    close()
   }
 }

@@ -120,6 +120,7 @@ class LiveStreamViewManager : LiveStreamViewManagerSpec<LiveStreamView>() {
 
   override fun onDropViewInstance(view: LiveStreamView) {
     super.onDropViewInstance(view)
+    (view.context as? ThemedReactContext)?.removeLifecycleEventListener(view)
     view.close()
   }
 
